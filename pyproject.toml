@@ -34,11 +34,13 @@ build = "cp311-* cp312-* cp313-* cp314-*"
 skip = "*-musllinux_*"
 
 [tool.cibuildwheel.linux]
-before-all =  """
+before-all =  "yum install -y zlib-devel"
+before-build = """
+python -m pip install --upgrade pip
+python -m pip install conan
 conan install "m4/1.4.19#b38ced39a01e31fef5435bc634461fd2" -r=conancenter --build=missing
-yum install -y zlib-devel
+rm -rf {package}/_skbuild
 """
-before-build = "rm -rf {package}/_skbuild"
 test-groups = ["test"]
 test-command = "pytest {package}/tests"
 
