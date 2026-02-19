@@ -14,8 +14,89 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
-  build-test-cmake:
-    name: CMake
+#   build-test-cmake:
+#     name: CMake
+
+#     strategy:
+#       fail-fast: false
+#       matrix:
+#         #os: ['ubuntu-latest', 'macos-latest', 'windows-2022']
+#         os: ['ubuntu-latest']
+
+#     runs-on: ${{ matrix.os }}
+
+#     steps:
+#     - uses: actions/checkout@v6
+#       with:
+#         # required for `git describe --tags` to work
+#         fetch-depth: 0
+
+#     - name: Setup Python
+#       uses: actions/setup-python@v6
+#       with:
+#         python-version: 3.14 
+#         cache: 'pip'
+
+#     - name: Install Conan
+#       uses: conan-io/setup-conan@v1
+#       with:
+#         cache_packages: true
+
+#     - name: Install dependencies
+#       shell: bash
+#       run: |
+#         python3 -m pip install -r requirements.txt
+#         mkdir cmake-build
+#         conan install . --output-folder=cmake-build --build=missing
+
+#     - name: Build (Unix)
+#       if: runner.os != 'Windows'
+#       run: |
+#         cmake --preset conan-release -DBUILD_TESTS=ON -DENABLE_ASAN=ON -DENABLE_UBSAN=ON -DRST_DOC=ON
+#         cmake --build --preset conan-release
+
+#     - name: Build (Windows)
+#       if: runner.os == 'Windows'
+#       run: |
+#         cmake --preset conan-default
+#         cmake --build --preset conan-release -DRST_DOC=ON
+
+#     - name: Run tests
+#       run: |
+#         ctest --preset conan-release
+#       env:
+#         RD_SKIP_SIGNAL: 1
+#         ERT_SHOW_BACKTRACE: 1
+
+#     - name: Diagnose PATH and m4 (Unix)
+#       if: ${{ always() && runner.os != 'Windows' }}
+#       shell: bash
+#       run: |
+#         echo "PATH=$PATH"
+#         echo "which m4:"; which m4 || true
+#         echo "m4 --version:"; m4 --version 2>&1 || true
+#         M4=$(which m4 || true)
+#         if [ -n "$M4" ]; then
+#           echo "ls -l $M4"; ls -l "$M4" || true
+#           echo "file $M4"; file "$M4" || true
+#           if command -v ldd >/dev/null 2>&1; then echo "ldd $M4"; ldd "$M4" || true; fi
+#         fi
+#         echo "CONAN TEST"
+#         python -c "import setup; print(setup.run_conan_install())"
+#         skbuild_dir="$(python -c 'import setup; print(setup.run_conan_install())')"
+#         jq '.configurePresets[0].environment' "$skbuild_dir/CMakePresets.json"
+
+#     - name: Diagnose PATH and m4 (Windows)
+#       if: ${{ always() && runner.os == 'Windows' }}
+#       shell: pwsh
+#       run: |
+#         Write-Host "Path=$env:Path"
+#         Write-Host "Get-Command m4 -ErrorAction SilentlyContinue:"; Get-Command m4 -ErrorAction SilentlyContinue
+#         try { & m4 --version } catch { Write-Host "m4 not found or failed: $_" }
+
+
+  build-test-wheel:
+    name: Python ${{ matrix.os }}
 
     strategy:
       fail-fast: false
@@ -28,45 +109,23 @@ jobs:
     steps:
     - uses: actions/checkout@v6
       with:
-        # required for `git describe --tags` to work
         fetch-depth: 0
 
-    - name: Setup Python
+    - name: Set up Python
       uses: actions/setup-python@v6
       with:
-        python-version: 3.14 
-        cache: 'pip'
+        python-version: ${{ matrix.python[0] }}
 
-    - name: Install Conan
-      uses: conan-io/setup-conan@v1
+    - name: Build wheels
+      uses: pypa/cibuildwheel@v3.3.1
       with:
-        cache_packages: true
+        extras: "uv"
 
-    - name: Install dependencies
-      shell: bash
-      run: |
-        python3 -m pip install -r requirements.txt
-        mkdir cmake-build
-        conan install . --output-folder=cmake-build --build=missing
-
-    - name: Build (Unix)
-      if: runner.os != 'Windows'
-      run: |
-        cmake --preset conan-release -DBUILD_TESTS=ON -DENABLE_ASAN=ON -DENABLE_UBSAN=ON -DRST_DOC=ON
-        cmake --build --preset conan-release
-
-    - name: Build (Windows)
-      if: runner.os == 'Windows'
-      run: |
-        cmake --preset conan-default
-        cmake --build --preset conan-release -DRST_DOC=ON
-
-    - name: Run tests
-      run: |
-        ctest --preset conan-release
-      env:
-        RD_SKIP_SIGNAL: 1
-        ERT_SHOW_BACKTRACE: 1
+    - name: Upload wheels
+      uses: actions/upload-artifact@v6
+      with:
+        name: wheels-${{ matrix.os }}
+        path: wheelhouse/*.whl
 
     - name: Diagnose PATH and m4 (Unix)
       if: ${{ always() && runner.os != 'Windows' }}
@@ -93,37 +152,6 @@ jobs:
         Write-Host "Path=$env:Path"
         Write-Host "Get-Command m4 -ErrorAction SilentlyContinue:"; Get-Command m4 -ErrorAction SilentlyContinue
         try { & m4 --version } catch { Write-Host "m4 not found or failed: $_" }
-
-  build-test-wheel:
-    name: Python ${{ matrix.os }}
-
-    strategy:
-      fail-fast: false
-      matrix:
-        os: ['ubuntu-latest', 'macos-latest', 'windows-2022']
-
-    runs-on: ${{ matrix.os }}
-
-    steps:
-    - uses: actions/checkout@v6
-      with:
-        fetch-depth: 0
-
-    - name: Set up Python
-      uses: actions/setup-python@v6
-      with:
-        python-version: ${{ matrix.python[0] }}
-
-    - name: Build wheels
-      uses: pypa/cibuildwheel@v3.3.1
-      with:
-        extras: "uv"
-
-    - name: Upload wheels
-      uses: actions/upload-artifact@v6
-      with:
-        name: wheels-${{ matrix.os }}
-        path: wheelhouse/*.whl
 
   publish:
     name: Publish to PyPI
