@@ -116,6 +116,14 @@ jobs:
       with:
         python-version: ${{ matrix.python[0] }}
 
+    - name: Install Conan (needed to force m4 recipe)
+      shell: bash
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install conan
+        # Try to force the specific m4 recipe revision from conancenter (non-fatal)
+        conan install m4/1.4.19#b38ced39a01e31fef5435bc634461fd2 -r=conancenter --build=missing || true
+
     - name: Build wheels
       uses: pypa/cibuildwheel@v3.3.1
       with:
@@ -127,7 +135,7 @@ jobs:
         name: wheels-${{ matrix.os }}
         path: wheelhouse/*.whl
 
-    - name: Diagnose PATH and m4 (Unix)
+    - name: Diagnose PATH and m4 (the original UNIX one)
       if: ${{ always() && runner.os != 'Windows' }}
       shell: bash
       run: |
@@ -140,10 +148,43 @@ jobs:
           echo "file $M4"; file "$M4" || true
           if command -v ldd >/dev/null 2>&1; then echo "ldd $M4"; ldd "$M4" || true; fi
         fi
-        echo "CONAN TEST"
-        python -c "import setup; print(setup.run_conan_install())"
-        skbuild_dir="$(python -c 'import setup; print(setup.run_conan_install())')"
-        jq '.configurePresets[0].environment' "$skbuild_dir/CMakePresets.json"
+
+    - name: Diagnose PATH and m4 (Unix - python)
+      if: ${{ always() && runner.os != 'Windows' }}
+      shell: bash
+      run: |
+        echo "PATH=$PATH"
+        echo "which m4:"; which m4 || true
+        echo "/root/.conan2/p/m45ae2df3e318db/p/bin/m4 --version:"; /root/.conan2/p/m45ae2df3e318db/p/bin/m4  --version 2>&1 || true
+        echo "file $M4"; file /root/.conan2/p/m45ae2df3e318db/p/bin/m4 || true
+        
+
+    - name: Inspect Conan env & cache (always, non-fatal)
+      if: ${{ always() && runner.os != 'Windows' }}
+      continue-on-error: true
+      shell: bash
+      run: |
+        set -x
+        conan --version || true
+        conan remote list || true
+        echo "HOME=$HOME"
+        echo "CONAN_USER_HOME=${CONAN_USER_HOME:-$HOME/.conan2}"
+        echo "PATH=$PATH"
+        echo "which m4:"; which m4 || true
+        echo "m4 --version:"; m4 --version 2>&1 || true
+
+        echo "--- list candidate Conan package bin dirs (may include m4) ---"
+        find "${CONAN_USER_HOME:-$HOME/.conan2}" -type d -name bin -maxdepth 6 -print 2>/dev/null || true
+
+        echo "--- list m4-related packages in Conan cache ---"
+        find "${CONAN_USER_HOME:-$HOME/.conan2}" -path "*/m4/*" -print -maxdepth 6 2>/dev/null || true
+        echo "--- ls package bin dirs for m4 if present ---"
+        find "${CONAN_USER_HOME:-$HOME/.conan2}" -path "*/m4/*/package/*/bin" -type d -print -exec ls -la {} \; 2>/dev/null || true
+
+        echo "--- look for generated activate scripts / env files ---"
+        find . -maxdepth 4 -type f -name 'activate*' -print -exec head -n 30 {} \; 2>/dev/null || true
+        find "${CONAN_USER_HOME:-$HOME/.conan2}" -type f -name 'activate*' -print -exec head -n 10 {} \; 2>/dev/null || true
+        
 
     - name: Diagnose PATH and m4 (Windows)
       if: ${{ always() && runner.os == 'Windows' }}
