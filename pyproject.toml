@@ -39,7 +39,7 @@ before-build = """
 python -m pip install --upgrade pip
 python -m pip install conan
 conan list "m4/1.4.19#*" -r=conancenter
-conan download "m4/1.4.19#b38ced39a01e31fef5435bc634461fd2" -r=conancenter || conan install "m4/1.4.19#b38ced39a01e31fef5435bc634461fd2" -r=conancenter --build=missing
+conan download "m4/1.4.19#1f9bd25d2bd53f49ad509caa467f57b9" -r=conancenter || conan install "m4/1.4.19#1f9bd25d2bd53f49ad509caa467f57b9" -r=conancenter --build=missing
 rm -rf {package}/_skbuild
 """
 test-groups = ["test"]
