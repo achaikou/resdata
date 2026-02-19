@@ -121,8 +121,66 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         python -m pip install conan
-        # Try to force the specific m4 recipe revision from conancenter (non-fatal)
-        conan install m4/1.4.19#b38ced39a01e31fef5435bc634461fd2 -r=conancenter --build=missing || true
+        conan list "m4/1.4.19#*" -r=conancenter
+
+    - name: Try building m4 from CCI at known-good commit (non-fatal)
+      shell: bash
+      continue-on-error: true
+      run: |
+        set -x
+        git clone https://github.com/conan-io/conan-center-index.git cci || true
+        cd cci || exit 0
+        # checkout the commit you pointed at (non-fatal)
+        git fetch --depth=1 origin 67d4e9fd894603c23f380f30d4a71c963ea33fb8 || true
+        git checkout 67d4e9fd894603c23f380f30d4a71c963ea33fb8 || git checkout --detach 67d4e9fd894603c23f380f30d4a71c963ea33fb8 || true
+        cd recipes/m4/all || exit 0
+        # Try to export/create the recipe into the local cache so Conan will prefer it
+        # Commands are non-fatal and may vary between Conan 1.x and 2.x
+        conan export . local/stable || true
+        conan create . m4/1.4.19@local/stable --build=missing || true
+        cd -
+        ls -la cci/recipes/m4/all || true
+
+    - name: Inspect Conan-generated envs and activate scripts (always, non-fatal)
+      if: ${{ always() && runner.os != 'Windows' }}
+      continue-on-error: true
+      shell: bash
+      run: |
+        set -x
+        # show Conan version and remotes
+        conan --version || true
+        conan remote list || true
+
+        # create a tiny consumer workspace to force generation of env files
+        rm -rf ci_consumer || true
+        mkdir ci_consumer && cd ci_consumer
+        cat > conanfile.txt <<'EOF'
+        [requires]
+        m4/1.4.19
+        EOF
+
+        # Install and generate envs (works for Conan v1 and v2; non-fatal)
+        conan install . --install-folder=ci --build=missing || true
+        conan generate . -if=ci -g VirtualBuildEnv -g VirtualRunEnv || true
+        # legacy virtualenv generator (Conan v1)
+        conan install . -g virtualenv -if=ci || true
+
+        echo "=== ci dir listing ==="
+        find ci -maxdepth 3 -print -type f -name 'activate*' -o -name '*.env' -o -name 'conaninfo.txt' || true
+        # print any activate scripts or env sh files
+        for f in ci/activate* ci/activate_run* ci/activate_build* ci/*.env ci/*/activate*; do
+          [ -f "$f" ] || continue
+          echo "---- $f ----"
+          head -n 200 "$f" || true
+        done
+
+        # Inspect conan cache for package bin dirs that might be prepended to build/run envs
+        echo "--- Conan user home ---"
+        echo "${CONAN_USER_HOME:-$HOME/.conan2}"
+        find "${CONAN_USER_HOME:-$HOME/.conan2}" -path "*/m4/*/package/*/bin" -type d -print -exec ls -la {} \; 2>/dev/null || true
+
+        cd ..
+        rm -rf ci_consumer || true
 
     - name: Build wheels
       uses: pypa/cibuildwheel@v3.3.1
@@ -155,8 +213,8 @@ jobs:
       run: |
         echo "PATH=$PATH"
         echo "which m4:"; which m4 || true
-        echo "/root/.conan2/p/m45ae2df3e318db/p/bin/m4 --version:"; /root/.conan2/p/m45ae2df3e318db/p/bin/m4  --version 2>&1 || true
-        echo "file $M4"; file /root/.conan2/p/m45ae2df3e318db/p/bin/m4 || true
+        sudo echo "/root/.conan2/p/m45ae2df3e318db/p/bin/m4 --version:"; /root/.conan2/p/m45ae2df3e318db/p/bin/m4  --version 2>&1 || true
+        sudo echo "file $M4"; file /root/.conan2/p/m45ae2df3e318db/p/bin/m4 || true
         
 
     - name: Inspect Conan env & cache (always, non-fatal)
