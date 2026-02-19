@@ -116,14 +116,14 @@ jobs:
       with:
         python-version: ${{ matrix.python[0] }}
 
-    - name: Install Conan (needed to force m4 recipe)
-      shell: bash
-      run: |
-        python -m pip install --upgrade pip
-        python -m pip install conan
-        conan list "m4/1.4.19#*" -r=conancenter
-        conan download "m4/1.4.19#b38ced39a01e31fef5435bc634461fd2" -r=conancenter || \
-        conan install "m4/1.4.19#b38ced39a01e31fef5435bc634461fd2" -r=conancenter --build=missing
+    # - name: Install Conan (needed to force m4 recipe)
+    #   shell: bash
+    #   run: |
+    #     python -m pip install --upgrade pip
+    #     python -m pip install conan
+    #     conan list "m4/1.4.19#*" -r=conancenter
+    #     conan download "m4/1.4.19#b38ced39a01e31fef5435bc634461fd2" -r=conancenter || \
+    #     conan install "m4/1.4.19#b38ced39a01e31fef5435bc634461fd2" -r=conancenter --build=missing
 
     - name: Build wheels
       uses: pypa/cibuildwheel@v3.3.1
