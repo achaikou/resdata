@@ -38,7 +38,7 @@ before-all = "yum install -y zlib-devel"
 before-build = """
 python -m pip install --upgrade pip
 python -m pip install conan
-conan profile show -pr=default
+conan profile detect
 conan list "m4/1.4.19#*" -r=conancenter
 conan download "m4/1.4.19#1f9bd25d2bd53f49ad509caa467f57b9" -r=conancenter || conan install "m4/1.4.19#1f9bd25d2bd53f49ad509caa467f57b9" -r=conancenter --build=missing
 rm -rf {package}/_skbuild
