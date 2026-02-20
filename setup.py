@@ -40,10 +40,12 @@ def run_conan_install():
     import shutil
 
     conan_exe = shutil.which("conan")
+    print(f"--- conan profile detect START: {conan_exe} ---", flush=True)
     subprocess.run(
         [conan_exe, "profile", "detect", "--force"],
         check=False,  # Ignore if profile already exists
     )
+    print("--- conan profile detect END ---", flush=True)
 
     skbuild_dir = get_skbuild_dir()
     os.makedirs(skbuild_dir, exist_ok=True)

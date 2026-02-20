@@ -38,7 +38,9 @@ before-all = "yum install -y zlib-devel"
 before-build = """
 python -m pip install --upgrade pip
 python -m pip install conan
+echo "profile before"
 conan profile detect
+echo "profile after"
 conan list "m4/1.4.19#*" -r=conancenter
 conan download "m4/1.4.19#1f9bd25d2bd53f49ad509caa467f57b9" -r=conancenter || conan install "m4/1.4.19#1f9bd25d2bd53f49ad509caa467f57b9" -r=conancenter --build=missing
 rm -rf {package}/_skbuild
@@ -48,6 +50,18 @@ test-command = "pytest {package}/tests"
 
 [tool.cibuildwheel.macos]
 before-all = "brew install zlib"
-before-build = "rm -rf {package}/_skbuild"
+before-build = """
+echo "profile before"
+conan profile detect
+echo "profile after"
+rm -rf {package}/_skbuild
+"""
 test-groups = ["test"]
 test-command = "pytest {package}/tests"
+
+[tool.cibuildwheel.windows]
+before-build = """
+echo "profile before"
+conan profile detect
+echo "profile after"
+"""
